@@ -1,0 +1,19 @@
+[package]
+name = "devenv"
+version = "0.1.0"
+authors = ["Guillem Castro <guillemcastro4@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libmount = "0.1.15"
+log = "0.4.8"
+simple_logger = "1.6.0"
+nix = "0.17.0"
+semver = "0.10.0"
+toml = "0.5.6"
+serde = "1.0.114"
+serde_derive = "1.0.114"
+packageurl = "^0.2.0"
+clap = "3.0.0-beta.1"

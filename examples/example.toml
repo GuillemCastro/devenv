@@ -1,0 +1,7 @@
+dest = ".devenv"
+
+[image]
+path = "/"
+
+[[dependencies]]
+purl=""
