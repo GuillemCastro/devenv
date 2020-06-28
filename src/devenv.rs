@@ -23,13 +23,14 @@
 
 use crate::filesystem::Filesystem;
 use crate::configuration::Configuration;
+use crate::container::Container;
 
 use std::fs;
 use std::env;
 use std::path::PathBuf;
 
 pub struct DevEnv {
-    fs: Filesystem
+    container: Container
 }
 
 impl DevEnv {
@@ -40,23 +41,18 @@ impl DevEnv {
 
     pub fn new() -> DevEnv {
         let target = env::current_dir().unwrap().join(DevEnv::DEFAULT_TARGET);
+        let fs = Filesystem::new(&DevEnv::DEFAULT_IMAGE, &target);
         return DevEnv {
-            fs: Filesystem::new(&DevEnv::DEFAULT_IMAGE, &target)
+            container: Container::new(fs)
         }
     }
 
-    pub fn create(&self) {
-        match self.fs.mount() {
-            Ok(_) => {}
-            Err(e) => panic!("Cannot create devenv: {}", e)
-        }
-        // Copy the binary inside the container
-        let bin = env::current_exe().unwrap();
-        fs::copy(bin, self.fs.root_path().join("usr/bin/devenv")).unwrap();
+    pub fn create(&mut self) {
+        self.container.create().expect("Could not create devenv");
     }
 
     pub fn location(&self) -> Option<&str> {
-        return self.fs.target_path().to_str();
+        return self.container.location();
     }
 
 }
@@ -72,8 +68,9 @@ impl From<Configuration> for DevEnv {
             Some(dest) => { PathBuf::from(dest) }
             None => { env::current_dir().unwrap().join(DevEnv::DEFAULT_TARGET) }
         };
+        let fs = Filesystem::new(&image, &destination);
         return DevEnv {
-            fs: Filesystem::new(&image, &destination)
+            container: Container::new(fs)
         }
     }
 

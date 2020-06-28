@@ -106,7 +106,7 @@ impl Filesystem {
         let sysversion = sysinfo.release();
         let current_version = Version::parse(sysversion)?;
         let required_version = Version::parse(required_kernel_version)?;
-        return Ok(required_version.ge(&current_version));
+        return Ok(current_version.ge(&required_version));
     }
 
 }
