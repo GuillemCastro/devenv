@@ -1,0 +1,66 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'devenv'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=devenv"
+                ],
+                "filter": {
+                    "name": "devenv",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'devenv'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=devenv",
+                    "--package=devenv"
+                ],
+                "filter": {
+                    "name": "devenv",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "shell"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'devenv'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=devenv",
+                    "--package=devenv"
+                ],
+                "filter": {
+                    "name": "devenv",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
