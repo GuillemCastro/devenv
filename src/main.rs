@@ -62,7 +62,9 @@ fn main() {
             devenv.destroy().unwrap()
         }
         options::SubCommand::Run(run) => {
-            devenv.run(run.command, vec![]).unwrap()
+            let args = run.command;
+            let command = args[0].clone();
+            devenv.run(command, args).unwrap()
         }
         options::SubCommand::Shell => {
             devenv.open_shell().unwrap()

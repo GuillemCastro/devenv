@@ -190,7 +190,7 @@ impl Container {
             None => filename,
             Some(val) => val.to_str().unwrap().to_owned()
         };
-        debug!("Executing command {}", resolved_filename);
+        debug!("Executing command {} {:?}", resolved_filename, args);
         let t_filename = CString::new(resolved_filename).unwrap();
         let c_filename = t_filename.as_c_str();
         let t_args: Vec<CString> = args.iter().map(|arg| CString::new(arg.as_bytes()).unwrap()).collect();

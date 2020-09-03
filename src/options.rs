@@ -42,6 +42,5 @@ pub enum SubCommand {
 #[derive(Debug)]
 #[derive(Clap)]
 pub struct Run {
-    #[clap(short, long)]
-    pub command: String
+    pub command: Vec<String>
 }
