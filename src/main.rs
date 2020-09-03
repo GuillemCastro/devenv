@@ -50,13 +50,24 @@ fn main() {
     simple_logger::init().unwrap();
 
     let contents = fs::read_to_string("examples/example.toml").expect("Cannot read the contents of the file");
-    let options: Configuration = toml::from_str(contents.as_str()).unwrap();
-    println!("{:?}", options);
+    let config: Configuration = toml::from_str(contents.as_str()).unwrap();
+    println!("{:?}", config);
     
     let mut devenv = DevEnv::new();
     info!("devenv location: {}", devenv.location().unwrap());
     devenv.create().unwrap();
-    devenv.resolve_dependencies().unwrap();
-    devenv.open_shell().unwrap();
+
+    match options.subcmd {
+        options::SubCommand::Delete => {
+            devenv.destroy().unwrap()
+        }
+        options::SubCommand::Run(run) => {
+            devenv.run(run.command, vec![]).unwrap()
+        }
+        options::SubCommand::Shell => {
+            devenv.open_shell().unwrap()
+        }
+    }
+
     devenv.wait_for_container().unwrap();
 }

@@ -28,17 +28,20 @@ use clap::Clap;
 #[clap(version = "0.1", author = "Guillem Castro <guillemcastro4@gmail.com>")]
 pub struct Options {
     #[clap(subcommand)]
-    subcmd: SubCommand,
+    pub subcmd: SubCommand,
 }
 
 #[derive(Debug)]
 #[derive(Clap)]
 pub enum SubCommand {
-    Init(Init)
+    Delete,
+    Run(Run),
+    Shell
 }
 
 #[derive(Debug)]
 #[derive(Clap)]
-pub struct Init {
-
+pub struct Run {
+    #[clap(short, long)]
+    pub command: String
 }
