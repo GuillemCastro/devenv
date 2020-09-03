@@ -53,21 +53,19 @@ impl DevEnv {
     }
 
     pub fn create(&mut self) -> Result<(), Error> {
-        if !self.exists() {
-            return self.container.create();
-        }
-        else {
-            warn!("DevEnv already exists and won't be recreated");
-        }
-        Ok(())
+        return self.container.create()
     }
 
-    pub fn exists(&self) -> bool {
-        false
+    pub fn destroy(&self) -> Result<(), Error> {
+        self.container.destroy()
     }
 
     pub fn location(&self) -> Option<&str> {
         return self.container.location();
+    }
+
+    pub fn run(&self, command: String, args: Vec<String>) -> Result<(), Error> {
+        self.container.run_in_container(ContainerTask::Command(command, args, false))
     }
 
     pub fn open_shell(&self) -> Result<(), Error> {
