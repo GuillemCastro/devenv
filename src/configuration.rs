@@ -21,7 +21,7 @@
  * THE SOFTWARE.
  */
 
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 use packageurl::PackageUrl;
 use std::str::FromStr;
 use std::error::Error;
@@ -32,6 +32,7 @@ use std::error::Error;
 pub struct Configuration {
     pub dest: Option<String>,
     pub image: Option<Image>,
+    pub shell: Option<String>,
     pub dependencies: Vec<Dependency>
 }
 
@@ -41,8 +42,8 @@ pub struct Image {
     pub path: String
 }
 
-#[derive(Debug)]
-#[derive(Deserialize)]
+#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize)]
 pub struct Dependency {
     pub purl: Option<String>,
     pub provider: Option<String>,
