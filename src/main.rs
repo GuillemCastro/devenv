@@ -26,6 +26,7 @@ mod devenv;
 mod configuration;
 mod options;
 mod container;
+mod lib;
 
 #[macro_use]
 extern crate log;
@@ -39,7 +40,7 @@ extern crate packageurl;
 
 use std::fs;
 use configuration::Configuration;
-use devenv::DevEnv;
+use crate::devenv::DevEnv;
 use options::Options;
 use clap::derive::Clap;
 
@@ -54,5 +55,8 @@ fn main() {
     
     let mut devenv = DevEnv::new();
     info!("devenv location: {}", devenv.location().unwrap());
-    devenv.create();   
+    devenv.create().unwrap();
+    devenv.resolve_dependencies().unwrap();
+    devenv.open_shell().unwrap();
+    devenv.wait_for_container().unwrap();
 }

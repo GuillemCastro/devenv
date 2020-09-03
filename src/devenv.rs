@@ -23,14 +23,15 @@
 
 use crate::filesystem::Filesystem;
 use crate::configuration::Configuration;
-use crate::container::Container;
+use crate::container::{Container, ContainerTask};
+use crate::lib::Error;
 
-use std::fs;
 use std::env;
 use std::path::PathBuf;
 
 pub struct DevEnv {
-    container: Container
+    container: Container,
+    config: Option<Configuration>
 }
 
 impl DevEnv {
@@ -39,20 +40,59 @@ impl DevEnv {
 
     const DEFAULT_TARGET: &'static str = ".devenv";
 
+    // Will be expanded as the $SHELL environment variable for the container user
+    const DEFAULT_SHELL: &'static str = "SHELL";
+
     pub fn new() -> DevEnv {
         let target = env::current_dir().unwrap().join(DevEnv::DEFAULT_TARGET);
         let fs = Filesystem::new(&DevEnv::DEFAULT_IMAGE, &target);
         return DevEnv {
-            container: Container::new(fs)
+            container: Container::new(fs),
+            config: None
         }
     }
 
-    pub fn create(&mut self) {
-        self.container.create().expect("Could not create devenv");
+    pub fn create(&mut self) -> Result<(), Error> {
+        if !self.exists() {
+            return self.container.create();
+        }
+        else {
+            warn!("DevEnv already exists and won't be recreated");
+        }
+        Ok(())
+    }
+
+    pub fn exists(&self) -> bool {
+        false
     }
 
     pub fn location(&self) -> Option<&str> {
         return self.container.location();
+    }
+
+    pub fn open_shell(&self) -> Result<(), Error> {
+        let shell = match &self.config {
+            Some(config) => {
+                config.shell.as_ref().unwrap_or(&DevEnv::DEFAULT_SHELL.to_owned()).into()
+            }
+            None => DevEnv::DEFAULT_SHELL.to_owned()
+        };
+        let args: Vec<String> = vec![];
+        self.container.run_in_container(ContainerTask::Command(shell, args, true))
+    }
+
+    pub fn resolve_dependencies(&self) -> Result<(), Error> {
+        match &self.config {
+            None => Ok(()),
+            Some(config) => {
+                let deps = config.dependencies.clone();
+                self.container.run_in_container(ContainerTask::ResolveDependencies(deps))
+            }
+        }
+    }
+
+    pub fn wait_for_container(&self) -> Result<(), Error> {
+        self.container.wait_for_container()
     }
 
 }
@@ -70,7 +110,8 @@ impl From<Configuration> for DevEnv {
         };
         let fs = Filesystem::new(&image, &destination);
         return DevEnv {
-            container: Container::new(fs)
+            container: Container::new(fs),
+            config: Some(config)
         }
     }
 
