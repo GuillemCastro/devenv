@@ -70,7 +70,12 @@ impl Container {
         }
         // Copy the binary inside the container
         let bin = current_exe().unwrap();
-        copy(bin, self.fs.root_path().join("usr/bin/devenv")).expect("Failed when copying devenv binary to the container");
+        match copy(bin, self.fs.root_path().join("usr/bin/devenv")) {
+            Ok(_) => {}
+            Err(err) => {
+                return Err(Error::IOError("Failed when copying devenv binary to the container".to_owned(), Some(err)))
+            }
+        }
         match unshare(CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNET | CloneFlags::CLONE_NEWCGROUP | CloneFlags::CLONE_NEWIPC) {
             Ok(_) => {}
             Err(err) => {
