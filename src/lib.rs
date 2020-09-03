@@ -21,6 +21,7 @@
  * THE SOFTWARE.
  */
 
+use std::str::FromStr;
 use std::error;
 use std::fmt;
 
@@ -32,6 +33,7 @@ use std::io;
 use std::convert::From;
 
 use nix;
+use log::debug;
 
 #[derive(Debug)]
 pub enum Error {
@@ -80,12 +82,36 @@ impl From<nix::Error> for Error {
     }
 }
 
-
-pub struct MountingPoint {
-    path: PathBuf,
-    fstype: String,
+// Some interesting filesystem types for DevEnv
+#[derive(Debug, PartialEq)]
+pub enum FsType {
+    Proc,
+    Overlay,
+    Tmpfs,
+    Other(String)
 }
 
+impl FromStr for FsType {
+    
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "proc" => Ok(FsType::Proc),
+            "tmpfs" => Ok(FsType::Tmpfs),
+            "overlay" => Ok(FsType::Overlay),
+            &_ => Ok(FsType::Other(s.to_owned()))
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct MountingPoint {
+    path: PathBuf,
+    fstype: FsType,
+}
+
+#[derive(Debug)]
 pub struct MTab {
     mounting_points: Vec<MountingPoint>
 }
@@ -95,7 +121,7 @@ impl MountingPoint {
     pub fn new(path: &PathBuf, fstype: &str) -> Self {
         return MountingPoint{
             path: path.clone(),
-            fstype: fstype.to_owned()
+            fstype: FsType::from_str(fstype).unwrap()
         }
     }
 
@@ -127,7 +153,7 @@ impl MTab {
             if !parts.is_empty() {
                 results.push(MountingPoint {
                     path: PathBuf::from(parts[1]),
-                    fstype: parts[2].to_owned()
+                    fstype: FsType::from_str(parts[2]).unwrap()
                 })
             }
         }
