@@ -1,4 +1,4 @@
-# devenv
+# devenv ![Rust](https://github.com/GuillemCastro/devenv/workflows/Rust/badge.svg)
 
 ## License
 
