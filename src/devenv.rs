@@ -68,6 +68,10 @@ impl DevEnv {
         self.container.run_in_container(ContainerTask::Command(command, args, false))
     }
 
+    pub fn boot(&self) -> Result<(), Error> {
+        self.container.boot()
+    }
+
     pub fn open_shell(&self) -> Result<(), Error> {
         let shell = match &self.config {
             Some(config) => {

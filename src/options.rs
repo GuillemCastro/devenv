@@ -32,7 +32,9 @@ pub struct Options {
     #[clap(long, short, default_value = "./devenv.toml", about = "The configuration file for the DevEnv")]
     pub file: String,
     #[clap(long, short, about = "Activate more verbose output")]
-    pub verbose: bool
+    pub verbose: bool,
+    #[clap(long, short, about = "Boot the container")]
+    pub boot: bool
 }
 
 #[derive(Debug)]

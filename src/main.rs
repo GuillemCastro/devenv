@@ -68,11 +68,17 @@ fn main() {
             devenv.destroy().unwrap()
         }
         options::SubCommand::Run(run) => {
+            if options.boot {
+                devenv.boot().expect("Could not boot the container");
+            }
             let args = run.command;
             let command = args[0].clone();
             devenv.run(command, args).unwrap()
         }
         options::SubCommand::Shell => {
+            if options.boot {
+                devenv.boot().expect("Could not boot the container");
+            }
             devenv.open_shell().unwrap()
         }
     }

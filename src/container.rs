@@ -52,6 +52,8 @@ pub enum ContainerTask {
 
 impl Container {
 
+    const INIT_TARGETS: &'static [&'static str] = &["/usr/lib/systemd/systemd", "/lib/systemd/systemd", "/sbin/init"];
+
     pub fn new(fs: Filesystem) -> Container {
         return Container {
             child_pid: None,
@@ -100,6 +102,13 @@ impl Container {
     pub fn destroy(&self) -> Result<(), Error> {
         self.fs.umount()?;
         self.fs.delete()?;
+        Ok(())
+    }
+
+    pub fn boot(&self) -> Result<(), Error> {
+        for target in Container::INIT_TARGETS {
+            self.run_in_container(ContainerTask::Command(target.to_string(), vec![target.to_string()], true))?;
+        }
         Ok(())
     }
 
