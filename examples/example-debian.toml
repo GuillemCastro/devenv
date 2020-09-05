@@ -1,0 +1,7 @@
+dest = ".devenv"
+
+[image]
+path = "examples/example-debian"
+
+[[dependencies]]
+purl=""
