@@ -29,13 +29,20 @@ use clap::Clap;
 pub struct Options {
     #[clap(subcommand)]
     pub subcmd: SubCommand,
+    #[clap(long, short, default_value = "./devenv.toml", about = "The configuration file for the DevEnv")]
+    pub file: String,
+    #[clap(long, short, about = "Activate more verbose output")]
+    pub verbose: bool
 }
 
 #[derive(Debug)]
 #[derive(Clap)]
 pub enum SubCommand {
+    #[clap(about = "Delete the DevEnv")]
     Delete,
+    #[clap(about = "Run a command inside the DevEnv")]
     Run(Run),
+    #[clap(about = "Open a shell inside the DevEnv")]
     Shell
 }
 

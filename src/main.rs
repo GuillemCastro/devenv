@@ -46,14 +46,20 @@ use clap::derive::Clap;
 
 fn main() {
     let options: Options = Options::parse();
-    println!("{:?}", options);
-    simple_logger::init().unwrap();
-
-    let contents = fs::read_to_string("examples/example.toml").expect("Cannot read the contents of the file");
-    let config: Configuration = toml::from_str(contents.as_str()).unwrap();
-    println!("{:?}", config);
     
-    let mut devenv = DevEnv::new();
+    match options.verbose {
+        true => simple_logger::init(),
+        false => simple_logger::init_with_level(log::Level::Warn)
+    }.expect("Couldn't configure the logging level");
+
+    debug!("{:?}", options);
+
+    let contents = fs::read_to_string(options.file).expect("Cannot read the contents of the file");
+    let config: Configuration = toml::from_str(contents.as_str()).unwrap();
+    
+    debug!("{:?}", config);
+    
+    let mut devenv = DevEnv::from(config);
     info!("devenv location: {}", devenv.location().unwrap());
     devenv.create().unwrap();
 
