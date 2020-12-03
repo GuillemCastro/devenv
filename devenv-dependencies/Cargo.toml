@@ -1,0 +1,11 @@
+[package]
+name = "devenv-dependencies"
+version = "0.1.0"
+authors = ["Guillem Castro <guillemcastro4@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+devenv-common = { path = "../devenv-common" }
+apt-pkg-native = "0.3.1"
+log = "0.4.8"
+simple_logger = "1.6.0"

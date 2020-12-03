@@ -1,0 +1,13 @@
+[package]
+name = "devenv-common"
+version = "0.1.0"
+authors = ["Guillem Castro <guillemcastro4@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4.8"
+simple_logger = "1.6.0"
+nix = "0.17.0"
+packageurl = "^0.2.0"
+serde = "1.0.114"
+serde_derive = "1.0.114"

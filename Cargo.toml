@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "devenv-core",
+    "devenv-common",
+    "devenv-cli",
+    "devenv-dependencies"
+]
