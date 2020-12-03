@@ -21,35 +21,21 @@
  * THE SOFTWARE.
  */
 
-use clap::Clap;
+use serde_derive::{Deserialize};
+use devenv_common::dependency::Dependency;
+
 
 #[derive(Debug)]
-#[derive(Clap)]
-#[clap(version = "0.1", author = "Guillem Castro <guillemcastro4@gmail.com>")]
-pub struct Options {
-    #[clap(subcommand)]
-    pub subcmd: SubCommand,
-    #[clap(long, short, default_value = "./devenv.toml", about = "The configuration file for the DevEnv")]
-    pub file: String,
-    #[clap(long, short, about = "Activate more verbose output")]
-    pub verbose: bool,
-    #[clap(long, short, about = "Boot the container")]
-    pub boot: bool
+#[derive(Deserialize)]
+pub struct Configuration {
+    pub dest: Option<String>,
+    pub image: Option<Image>,
+    pub shell: Option<String>,
+    pub dependencies: Vec<Dependency>
 }
 
 #[derive(Debug)]
-#[derive(Clap)]
-pub enum SubCommand {
-    #[clap(about = "Delete the DevEnv")]
-    Delete,
-    #[clap(about = "Run a command inside the DevEnv")]
-    Run(Run),
-    #[clap(about = "Open a shell inside the DevEnv")]
-    Shell
-}
-
-#[derive(Debug)]
-#[derive(Clap)]
-pub struct Run {
-    pub command: Vec<String>
+#[derive(Deserialize)]
+pub struct Image {
+    pub path: String
 }

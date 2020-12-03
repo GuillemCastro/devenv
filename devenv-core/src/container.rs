@@ -21,20 +21,23 @@
  * THE SOFTWARE.
  */
 
+use std::fs::OpenOptions;
 use nix::sched::{unshare, CloneFlags};
 use nix::unistd::{fork, ForkResult, getpid, Pid, execvp, execv, chroot};
 use nix::sys::wait::waitpid;
 use std::ffi::{CString, CStr};
 use std::env::{current_exe, set_current_dir, var_os};
-use std::fs::copy;
-use std::path::{PathBuf, Path};
-use crate::lib::Error;
+use std::fs::{copy, File};
+use std::{io::{Read, Write}, path::{PathBuf, Path}};
+use devenv_common::error::Error;
 use log::{debug, error, warn};
 use ipc_channel;
 use serde_derive::{Serialize, Deserialize};
 use directories::BaseDirs;
+use uuid::Uuid;
 
-use crate::configuration::Dependency;
+use devenv_dependencies;
+use devenv_common::dependency::Dependency;
 use crate::filesystem::Filesystem;
 
 pub struct Container {
@@ -45,7 +48,11 @@ pub struct Container {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ContainerTask {
-    Command(String, Vec<String>, bool), // filename, params, as PID 1?
+    Command {
+        name: String,
+        params: Vec<String>,
+        reuse_pid: bool
+    },
     ResolveDependencies(Vec<Dependency>),
     Exit
 }
@@ -75,14 +82,15 @@ impl Container {
         match copy(bin, self.fs.root_path().join("usr/bin/devenv")) {
             Ok(_) => {}
             Err(err) => {
-                return Err(Error::IOError("Failed when copying devenv binary to the container".to_owned(), Some(err)))
+                error!("Failed to copy DevEnv binary");
+                return Err(Error::from(err))
             }
         }
         match unshare(CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNET | CloneFlags::CLONE_NEWCGROUP | CloneFlags::CLONE_NEWIPC) {
             Ok(_) => {}
             Err(err) => {
                 error!("Failed to unshare");
-                return Err(Error::UnixError("Failed to unshare".to_owned(), Some(err)));
+                return Err(Error::from(err));
             }
         }
         match fork() {
@@ -94,7 +102,10 @@ impl Container {
                 self.container_process().unwrap();
                 std::process::exit(0);
             }
-            Err(e) => { return Err(Error::UnixError("Fork failed".to_owned(), Some(e))); }
+            Err(e) => { 
+                error!("Fork failed!");
+                return Err(Error::from(e)); 
+            }
         }
         Ok(())
     }
@@ -107,7 +118,7 @@ impl Container {
 
     pub fn boot(&self) -> Result<(), Error> {
         for target in Container::INIT_TARGETS {
-            self.run_in_container(ContainerTask::Command(target.to_string(), vec![target.to_string()], true))?;
+            self.run_in_container(ContainerTask::Command{name: target.to_string(), params: vec![target.to_string()], reuse_pid: true})?;
         }
         Ok(())
     }
@@ -117,7 +128,7 @@ impl Container {
             Ok(status) => { debug!("Child process exited with status {:?}", status) }
             Err(e) => { 
                 error!("Child exited with error {}", e);
-                return Err(Error::UnixError("Container process exited with error".to_owned(), Some(e)));
+                return Err(Error::from(e));
             } 
         }
         Ok(())
@@ -131,14 +142,14 @@ impl Container {
             _ => {
                 // PID for the container must be 1, some applications and services expect to be executed with PID 1 (for example systemd)
                 error!("Container is not running with PID 1");
-                return Err(Error::UnixError("Container is not running with PID 1".to_owned(), None))
+                return Err(Error::new("Container is not running with PID 1"))
             }
         }
         match chroot(&self.root()) {
             Ok(_) => {}
             Err(err) => {
                 error!("Failed to chroot to {}", self.root().to_str().unwrap_or_default());
-                return Err(Error::UnixError("Failed to chroot".to_owned(), Some(err)));
+                return Err(Error::from(err));
             }
         }
         let base_dirs = BaseDirs::new();
@@ -153,16 +164,23 @@ impl Container {
             Ok(_) => (),
             Err(_) => {
                 warn!("Could not set working directory to {:?}", new_cwd);
-                return Err(Error::UnixError("Could not set working directory".to_owned(), None));
+                return Err(Error::new("Could not set working directory"));
             }
         }
-        match self.fs.mount_procfs() {
+        match self.fs.inner_mount() {
             Ok(_) => (),
             Err(e) => {
-                error!("Could not mount procfs");
+                error!("Could not mount");
                 return Err(e);
             }
         }
+        /*match self.setup_boot_id() {
+            Ok(_) => (),
+            Err (e) => {
+                error!("Could not set boot id");
+                return Err(Error::from(e))
+            }
+        }*/
         self.run_tasks();
         Ok(())
     }
@@ -184,9 +202,15 @@ impl Container {
     fn run_task(&self, task: ContainerTask) {
         debug!("Executing task {:?}", task);
         match task {
-            ContainerTask::Command(filename, args, same_pid) => self.execute_command(filename, args, same_pid),
+            ContainerTask::Command { name, params, reuse_pid } => self.execute_command(name, params, reuse_pid),
             ContainerTask::ResolveDependencies(dependencies) => {
-
+                
+                match devenv_dependencies::resolve_dependencies(dependencies) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        error!("{}", e);
+                    }
+                }
             }
             ContainerTask::Exit => {
 
@@ -235,6 +259,29 @@ impl Container {
         return self.fs.target_path().to_str();
     }
 
+    fn setup_boot_id(&self) -> Result<(), Error> {
+        let boot_id = Uuid::new_v4();
+        debug!("Boot id: {}", boot_id.to_hyphenated());
+        let boot_id_path = Path::new("/proc/sys/kernel/random/boot_id");
+        let mut boot_id_file = match OpenOptions::new().write(true).create(true).truncate(true).open(boot_id_path) {
+            Ok(file) => file,
+            Err(e) => { 
+                error!("Could not open boot_id file");
+                return Err(Error::from(e))
+            }
+        };
+        //let mut old_id: String = String::new();
+        //boot_id_file.read_to_string(&mut old_id)?;
+        //debug!("boot id: {}", old_id);
+        match boot_id_file.write_all(boot_id.to_hyphenated().to_string().as_bytes()) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(Error::from(e))
+            }
+        }
+        Ok(())
+    }
+
 }
 
 pub struct ContainerIPC {
@@ -256,7 +303,7 @@ impl ContainerIPC {
         match self.sender.send(payload) {
             Ok(_) => Ok(()),
             Err(err) => {
-                Err(Error::IPCError("Error sending task".to_owned()))
+                Err(Error::new("Error sending task"))
             }
         }
     }
@@ -265,7 +312,7 @@ impl ContainerIPC {
         match self.receiver.recv() {
             Ok(task) => Ok(task),
             Err(e) => {
-                Err(Error::IPCError("Error receiving task".to_owned()))
+                Err(Error::new("Error receiving task"))
             }
         }
     }

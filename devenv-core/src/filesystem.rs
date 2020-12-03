@@ -24,13 +24,15 @@
 use libmount::{Overlay, Tmpfs};
 use std::path::{Path, PathBuf};
 use std::fs;
-use log::{warn};
-use crate::lib::Error;
+use log::{warn, error};
+use devenv_common::error::Error;
 
 use semver::Version;
-use nix::sys::utsname::uname;
-use nix::mount::{mount, MsFlags, umount};
-use devenv::{MountingPoint, MTab};
+use nix::{libc::{S_IFCHR, S_IRUSR, S_IWUSR}, sys::{stat::{Mode, SFlag}, utsname::uname}};
+use crate::mount::{MountingPoint, MTab, FsType};
+use nix::mount::{MsFlags, umount};
+use nix::sys::stat::{mknod, makedev};
+use crate::mount::mount;
 
 pub struct Filesystem {
     imagepath: PathBuf,
@@ -89,11 +91,11 @@ impl Filesystem {
         // directory inside a Tmpfs. Otherwise it will fail due to cyclic references.
         if self.targetpath.ancestors().any(|x| x == self.imagepath) { 
             warn!("The image path contains the devenv path. All non-persisted changes will be lost at reboot.");
-            if !mtab.contains(MountingPoint::new(&self.targetpath, "tmpfs")) {
+            if !mtab.contains(MountingPoint::new(None, &self.targetpath.join(Filesystem::MERGE_DIR), Some(FsType::Overlay))) {
                 let targetfs = Tmpfs::new(&self.targetpath);
                 match targetfs.mount() {
                     Ok(_) => {}
-                    Err(e) => { return Err(Error::MountError("Could not mount tmpfs".to_owned())) }
+                    Err(e) => { return Err(Error::new("Could not mount tmpfs")) }
                 }
             }
         }
@@ -107,7 +109,7 @@ impl Filesystem {
         if !self.targetpath.join(Filesystem::WORK_DIR).exists() {
             fs::create_dir(self.targetpath.join(Filesystem::WORK_DIR)).unwrap();
         }
-        if !mtab.contains(MountingPoint::new(&self.targetpath.join(Filesystem::MERGE_DIR), "overlay")) {
+        if !mtab.contains(MountingPoint::new(None, &self.targetpath.join(Filesystem::MERGE_DIR), Some(FsType::Overlay))) {
             let overlayfs = Overlay::writable(
                 vec![&self.imagepath].iter().map(|x| x.as_path()), 
                 self.targetpath.join(Filesystem::UPPER_DIR), 
@@ -116,22 +118,69 @@ impl Filesystem {
             );
             match overlayfs.mount() {
                 Ok(_) => {}
-                Err(e) => { return Err(Error::MountError("Could not mount overlayfs".to_owned())) }
+                Err(e) => { return Err(Error::new("Could not mount overlayfs")) }
             }
         }
+        Ok(())
+    }
+
+    pub fn inner_mount(&self) -> Result<(), Error> {
+        let mount_table: Vec<MountingPoint> = vec![
+            MountingPoint::new_all(Some("proc".to_owned()), &PathBuf::from("/proc"), Some(FsType::Proc), None, Some(MsFlags::MS_NOSUID|MsFlags::MS_NOEXEC|MsFlags::MS_NODEV), Some(true), Some(true), Some(false)),
+            MountingPoint::new_all(Some("/proc/sys".to_owned()), &PathBuf::from("/proc/sys"), None, None, Some(MsFlags::MS_BIND), Some(true), Some(true), Some(false)),
+            MountingPoint::new_all(Some("/proc/sys/net".to_owned()), &PathBuf::from("/proc/sys/net"), None, None, Some(MsFlags::MS_BIND), Some(true), Some(true), Some(true)),
+            MountingPoint::new_all(None, &PathBuf::from("/proc/sys"), None, None, Some(MsFlags::MS_BIND|MsFlags::MS_RDONLY|MsFlags::MS_NOSUID|MsFlags::MS_NOEXEC|MsFlags::MS_NODEV|MsFlags::MS_REMOUNT), Some(true), Some(true), Some(false)),
+            MountingPoint::new_all(Some("tmpfs".to_owned()), &PathBuf::from("/sys"), Some(FsType::Tmpfs), Some("mode=755".to_owned()), Some(MsFlags::MS_NOSUID|MsFlags::MS_NOEXEC|MsFlags::MS_NODEV), Some(true), Some(false), Some(true)),
+            MountingPoint::new_all(Some("sysfs".to_owned()), &PathBuf::from("/sys"), Some(FsType::Sysfs), None, Some(MsFlags::MS_RDONLY|MsFlags::MS_NOSUID|MsFlags::MS_NOEXEC|MsFlags::MS_NODEV), Some(true), Some(false), Some(false)),
+            MountingPoint::new_all(Some("tmpfs".to_owned()), &PathBuf::from("/dev"), Some(FsType::Tmpfs), Some("mode=755".to_owned()), Some(MsFlags::MS_NOSUID|MsFlags::MS_STRICTATIME), Some(true), Some(false), Some(false)),
+            MountingPoint::new_all(Some("tmpfs".to_owned()), &PathBuf::from("/dev/shm"), Some(FsType::Tmpfs), Some("mode=1777".to_owned()), Some(MsFlags::MS_NOSUID|MsFlags::MS_STRICTATIME|MsFlags::MS_NODEV), Some(true), Some(false), Some(false)),
+            MountingPoint::new_all(Some("tmpfs".to_owned()), &PathBuf::from("/run"), Some(FsType::Tmpfs), Some("mode=755".to_owned()), Some(MsFlags::MS_NOSUID|MsFlags::MS_STRICTATIME|MsFlags::MS_NODEV), Some(true), Some(false), Some(false)),
+            MountingPoint::new_all(Some("tmpfs".to_owned()), &PathBuf::from("/tmp"), Some(FsType::Tmpfs), Some("mode=1777".to_owned()), Some(MsFlags::MS_STRICTATIME), Some(true), Some(false), Some(false)),
+
+        ];
+        for mounting_point in mount_table {
+            fs::create_dir_all(&mounting_point.path)?;
+            match mount(&mounting_point) {
+                Ok(()) => {}
+                Err(e) => {
+                    error!("Error mounting {:?}", mounting_point);
+                    return Err(e);
+                }
+            }
+        }
+        self.create_dev_devices()?;
+        Ok(())
+    }
+
+    fn create_dev_devices(&self) -> Result<(), Error> {
+        let dev_null = makedev(1, 3);
+        let dev_zero = makedev(1, 5);
+        let dev_full = makedev(1, 7);
+        let dev_random = makedev(1, 8);
+        let dev_urandom = makedev(1, 9);
+        let dev_tty = makedev(5, 0);
+        let dev_ptmx = makedev(5, 2);
+        let _0666 = Mode::S_IRUSR | Mode::S_IWUSR | Mode::S_IRGRP | Mode::S_IWGRP | Mode::S_IROTH | Mode::S_IWOTH;
+        mknod("/dev/null", SFlag::S_IFCHR,  _0666, dev_null)?;
+        mknod("/dev/zero", SFlag::S_IFCHR,  _0666, dev_zero)?;
+        mknod("/dev/full", SFlag::S_IFCHR, _0666, dev_full)?;
+        mknod("/dev/random", SFlag::S_IFCHR, _0666, dev_random)?;
+        mknod("/dev/urandom", SFlag::S_IFCHR, _0666, dev_urandom)?;
+        mknod("/dev/tty", SFlag::S_IFCHR, _0666, dev_tty)?;
+        mknod("/dev/ptmx", SFlag::S_IFCHR, _0666, dev_ptmx)?;
         Ok(())
     }
 
     /// Mounts the procfs of the container
     /// 
     /// Must be run AFTER chrooting, otherwise bad things might happen.
-    pub fn mount_procfs(&self) -> Result<(), Error> {
+   /* pub fn mount_procfs(&self) -> Result<(), Error> {
         // mount -t proc proc /proc
         match mount::<str, str, str, str>(None, "/proc", Some("proc"), MsFlags::MS_RDONLY, None) {
             Ok(_) => Ok(()),
             Err(e) => Err(Error::UnixError("Could not mount procfs".to_owned(), Some(e)))
         }
-    }
+    }*/
 
     pub fn umount(&self) -> Result<(), Error> {
         umount(&self.targetpath.join("merge").join("proc"))?;
@@ -143,7 +192,7 @@ impl Filesystem {
     pub fn delete(&self) -> Result<(), Error> {
         let mtab = MTab::new();
         // If the image is set to be the rootfs, we don't want to accidentaly delete it
-        while mtab.contains(MountingPoint::new(&self.targetpath.join(Filesystem::MERGE_DIR), "overlay")) {
+        while mtab.contains(MountingPoint::new(None, &self.targetpath.join(Filesystem::MERGE_DIR), Some(FsType::Overlay))) {
             self.umount()?;
         }
         fs::remove_dir_all(self.targetpath.join(Filesystem::MERGE_DIR))?;

@@ -1,5 +1,5 @@
 [package]
-name = "devenv"
+name = "devenv-core"
 version = "0.1.0"
 authors = ["Guillem Castro <guillemcastro4@gmail.com>"]
 edition = "2018"
@@ -15,7 +15,9 @@ semver = "0.10.0"
 toml = "0.5.6"
 serde = "1.0.114"
 serde_derive = "1.0.114"
-packageurl = "^0.2.0"
 clap = "3.0.0-beta.1"
 ipc-channel = "0.8.0"
 directories = "3.0"
+uuid = { version = "0.8", features = ["serde", "v4"] }
+devenv-common = { path = "../devenv-common" }
+devenv-dependencies = { path = "../devenv-dependencies" }

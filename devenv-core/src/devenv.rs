@@ -24,7 +24,7 @@
 use crate::filesystem::Filesystem;
 use crate::configuration::Configuration;
 use crate::container::{Container, ContainerTask};
-use crate::lib::Error;
+use devenv_common::error::Error;
 
 use std::env;
 use std::path::PathBuf;
@@ -65,7 +65,7 @@ impl DevEnv {
     }
 
     pub fn run(&self, command: String, args: Vec<String>) -> Result<(), Error> {
-        self.container.run_in_container(ContainerTask::Command(command, args, false))
+        self.container.run_in_container(ContainerTask::Command{name: command, params: args, reuse_pid: false})
     }
 
     pub fn boot(&self) -> Result<(), Error> {
@@ -80,7 +80,7 @@ impl DevEnv {
             None => DevEnv::DEFAULT_SHELL.to_owned()
         };
         let args: Vec<String> = vec![];
-        self.container.run_in_container(ContainerTask::Command(shell, args, true))
+        self.container.run_in_container(ContainerTask::Command{name: shell, params: args, reuse_pid: true})
     }
 
     pub fn resolve_dependencies(&self) -> Result<(), Error> {

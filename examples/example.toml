@@ -4,4 +4,4 @@ dest = ".devenv"
 path = "/"
 
 [[dependencies]]
-purl=""
+purl="pkg:deb/debian/curl@7.50.3-1?arch=i386&distro=jessie"
