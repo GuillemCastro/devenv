@@ -126,6 +126,7 @@ impl Filesystem {
 
     pub fn inner_mount(&self) -> Result<(), Error> {
         let mount_table: Vec<MountingPoint> = vec![
+            MountingPoint::new_all(None, &PathBuf::from("/"), None, None, Some(MsFlags::MS_REC|MsFlags::MS_PRIVATE), Some(true), Some(true), Some(false)),
             MountingPoint::new_all(Some("proc".to_owned()), &PathBuf::from("/proc"), Some(FsType::Proc), None, Some(MsFlags::MS_NOSUID|MsFlags::MS_NOEXEC|MsFlags::MS_NODEV), Some(true), Some(true), Some(false)),
             MountingPoint::new_all(Some("/proc/sys".to_owned()), &PathBuf::from("/proc/sys"), None, None, Some(MsFlags::MS_BIND), Some(true), Some(true), Some(false)),
             MountingPoint::new_all(Some("/proc/sys/net".to_owned()), &PathBuf::from("/proc/sys/net"), None, None, Some(MsFlags::MS_BIND), Some(true), Some(true), Some(true)),

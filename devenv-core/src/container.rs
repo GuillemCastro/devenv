@@ -86,7 +86,7 @@ impl Container {
                 return Err(Error::from(err))
             }
         }
-        match unshare(CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNET | CloneFlags::CLONE_NEWCGROUP | CloneFlags::CLONE_NEWIPC) {
+        match unshare(CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID | CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWNET | CloneFlags::CLONE_NEWCGROUP | CloneFlags::CLONE_NEWIPC | CloneFlags::CLONE_FS ) {
             Ok(_) => {}
             Err(err) => {
                 error!("Failed to unshare");
